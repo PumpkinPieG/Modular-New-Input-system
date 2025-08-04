@@ -3,12 +3,12 @@ using UnityEngine.InputSystem;
 
 public class Interactor : MonoBehaviour
 {
+    //interaction system specific, remove in other systems.
     public interface IInteractable
     {
         void Interact();
     }
 
-    public bool isInteracting = false;
     public Transform interactorSource;
     public float interactRange;
 
@@ -35,33 +35,51 @@ public class Interactor : MonoBehaviour
         }
 
         _interactAction.Enable();
-
-        _interactAction.performed += ctx => isInteracting = true;
-        _interactAction.canceled += ctx => isInteracting = false;
+        _interactAction.performed += OnInteractInput;
     }
 
     private void OnDisable()
     {
         if (_interactAction != null)
         {
-            _interactAction.performed -= ctx => isInteracting = true;  // This won’t unsubscribe properly!
-            _interactAction.canceled -= ctx => isInteracting = false;  // This won’t unsubscribe properly!
+            _interactAction.performed -= OnInteractInput;
             _interactAction.Disable();
         }
     }
 
-    private void Update()
+    //interaction system specific, remove in other systems.
+    private void OnInteractInput(InputAction.CallbackContext ctx)
     {
-        if (isInteracting)
+        Collider[] hits = Physics.OverlapSphere(interactorSource.position, interactRange);
+
+        foreach (var hit in hits)
         {
-            Ray r = new Ray(interactorSource.position, interactorSource.forward);
-            if (Physics.Raycast(r, out RaycastHit hitInfo, interactRange))
+            // Skip self
+            if (hit.transform == interactorSource)
+                continue;
+
+            // Try to interact
+            if (hit.gameObject.TryGetComponent<IInteractable>(out var interactObj))
             {
-                if (hitInfo.collider.gameObject.TryGetComponent(out IInteractable interactObj))
+                if(interactObj.GetType().GetMethod("Interact") != null)
                 {
                     interactObj.Interact();
                 }
+                
+             
+                
+                
             }
         }
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (interactorSource == null) return;
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(interactorSource.position, interactRange);
+    }
+
+    
 }
