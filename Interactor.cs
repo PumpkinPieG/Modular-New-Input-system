@@ -3,11 +3,18 @@ using UnityEngine.InputSystem;
 
 public class Interactor : MonoBehaviour
 {
+    public interface IInteractable
+    {
+        void Interact();
+    }
 
+    public bool isInteracting = false;
+    public Transform interactorSource;
+    public float interactRange;
 
     [SerializeField] private InputActionAsset inputActions;
-    [SerializeField] private string actionMapName = "Player"; // the further left in the Input Action
-    [SerializeField] private string actionName = "Interact"; // the middle in the input action
+    [SerializeField] private string actionMapName = "Player";
+    [SerializeField] private string actionName = "Interact";
 
     private InputAction _interactAction;
 
@@ -28,21 +35,33 @@ public class Interactor : MonoBehaviour
         }
 
         _interactAction.Enable();
-        _interactAction.performed += OnInteract;
+
+        _interactAction.performed += ctx => isInteracting = true;
+        _interactAction.canceled += ctx => isInteracting = false;
     }
 
     private void OnDisable()
     {
         if (_interactAction != null)
         {
-            _interactAction.performed -= OnInteract;
+            _interactAction.performed -= ctx => isInteracting = true;  // This won’t unsubscribe properly!
+            _interactAction.canceled -= ctx => isInteracting = false;  // This won’t unsubscribe properly!
             _interactAction.Disable();
         }
     }
 
-    private void OnInteract(InputAction.CallbackContext context)
+    private void Update()
     {
-        Debug.Log("Interact triggered.");
-        // Do interaction logic here
+        if (isInteracting)
+        {
+            Ray r = new Ray(interactorSource.position, interactorSource.forward);
+            if (Physics.Raycast(r, out RaycastHit hitInfo, interactRange))
+            {
+                if (hitInfo.collider.gameObject.TryGetComponent(out IInteractable interactObj))
+                {
+                    interactObj.Interact();
+                }
+            }
+        }
     }
 }
